@@ -14,7 +14,7 @@ class Client(hiveweb.Client):
         print('C: '+data)
 
 
-
+#Imagine this is on a seperate device
 server = Server(8330)
 th=threading.Thread(target=server.start).start()
 
