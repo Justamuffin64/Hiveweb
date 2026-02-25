@@ -25,6 +25,13 @@ class _CommunicatingObject(object):
         Called whenever the server receives data!
         """
         pass #Implement in extended class!
+
+    def _private_receive(self, data):
+        """
+        Middleman between '_listen_thread()' and 'receive()'
+        Used to manipulate data without override.
+        """
+        self.receive(data)
         
 
 #USED IN LISTENING THREAD
@@ -36,8 +43,7 @@ def _listen_thread(connection, instance):
         data = b''
         while data[-5:] != END:
             data += connection.recv(1024)
-        data = data[:-5].decode()
-        instance.receive(data)
+        instance._private_receive(data)
 
 
 class Server(_CommunicatingObject):
@@ -67,6 +73,25 @@ class Server(_CommunicatingObject):
         """
         con.send(data.encode()+b'<END>')
 
+    def _private_receive(self, data):
+        """
+        Middleman between '_listen_thread()' and 'receive()'
+        Used to parse server commands.
+        """
+        self.data = data[:-5]
+        if self.data.startswith(b'<POST>'):
+            self.data = self.data[6:]
+            self.receive(self.data.decode())
+
+            
+        elif self.data.startswith(b'<REQUEST>'):
+            self.data = self.data[9:]
+            #add request logic
+
+
+        else: #default back to <POST> if tag not found
+            self.receive(self.data.decode())
+
 
 class Client(_CommunicatingObject):
     def __init__(self, PORT, IP):
@@ -79,8 +104,16 @@ class Client(_CommunicatingObject):
         self.t=threading.Thread(target=_listen_thread, args=(self.s,self))
         self.t.start()
 
+    def post(self,data):
+        self.send('<POST>'+data)
+
+    def request(self,data):
+        self.send('<REQUEST>'+data)
+
     def send(self,data):
         """
         Call to send data to target IP.
         """
         self.s.send(data.encode()+b'<END>')
+
+    
