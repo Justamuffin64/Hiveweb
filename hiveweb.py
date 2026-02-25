@@ -1,11 +1,10 @@
+"""Docstring :)"""
 import socket
 import threading
 
 PORT = 8330
 HOST = 'localhost'
 END = b'<END>'
-
-
 
 class _CommunicatingObject(object):
     def __init__(self,PORT):
@@ -77,6 +76,9 @@ class Server(_CommunicatingObject):
         """
         Middleman between '_listen_thread()' and 'receive()'
         Used to parse server commands.
+
+        Server commands should be implemented with a leading tag here,
+        and call a method that can be overwritten by extended classes.
         """
         self.data = data[:-5]
         if self.data.startswith(b'<POST>'):
@@ -86,11 +88,14 @@ class Server(_CommunicatingObject):
             
         elif self.data.startswith(b'<REQUEST>'):
             self.data = self.data[9:]
-            #add request logic
+            #self.respond([RETURN ADDRESS],self.data.decode())
 
 
         else: #default back to <POST> if tag not found
             self.receive(self.data.decode())
+
+    def respond(self, data, address):
+        self.send(self.members[eval(address)],data)
 
 
 class Client(_CommunicatingObject):
@@ -116,4 +121,5 @@ class Client(_CommunicatingObject):
         """
         self.s.send(data.encode()+b'<END>')
 
-    
+    def _private_receive(self,data):
+        self.receive(data.decode()[:-5])
