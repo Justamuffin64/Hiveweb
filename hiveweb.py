@@ -133,33 +133,28 @@ class Server(_CommunicatingObject):
         '_private_receive()' also handles data decoding.
         """
         #strip <END> tag off data
-        self.data = data[:-5]
+        data = data[:-5]
         #get <TAG>, return address, and data
-        self.tag,self.retaddr,self.data = self._extract_data(self.data)
+        tag,retaddr,data = self._extract_data(data)
         
-        match self.tag:
+        match tag:
             case b'<POST>':
                 #call receive with decoded data
-                self.receive(self.data.decode())
+                self.receive(data.decode())
 
             case b'<RQST>':
                 #call respond with decoded data and return address
-                self.respond(self.data.decode(),self.retaddr.decode())
+                self.respond(data.decode(),retaddr.decode())
 
             case b'<CLOS>':
                 #close targeted connection
                 with self.lock:
-                    self.members[self.retaddr.decode()].close()
-                    del self.members[self.retaddr.decode()]
+                    self.members[retaddr.decode()].close()
+                    del self.members[retaddr.decode()]
 
             case _: #default back to <POST> if tag not found
                 #call receive with decoded data
-                self.receive(self.data.decode())
-
-        #delete variables that are no longer in use
-        del self.data
-        del self.retaddr
-        del self.tag
+                self.receive(data.decode())
 
     def _extract_data(self,data):
         """
