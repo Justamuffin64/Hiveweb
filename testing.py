@@ -28,5 +28,3 @@ th=threading.Thread(target=server.start).start()
 
 me = Client(8330,'localhost')
 me2 = ClientTwo(8330,'localhost')
-
-

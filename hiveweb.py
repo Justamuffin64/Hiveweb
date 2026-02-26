@@ -41,10 +41,21 @@ def _listen_thread(connection, instance):
     """
     Indefinetly listens for input.
     """
+    #loop infinitely
     while True:
+        #set 'data' to empty bytestring
         data = b''
+        #receive a kb of data until <END> tag is reached
         while data[-5:] != END:
-            data += connection.recv(1024)
+            dr = connection.recv(1024)
+            #if data is received, append it to 'data'
+            if dr:
+                data += dr
+            #otherwise the socket has disconnected so kill the thread
+            #returning None kills the thread
+            else:
+                return None
+        #pass final data back to the right _private_receive
         instance._private_receive(data)
 
 
@@ -68,7 +79,8 @@ class Server(_CommunicatingObject):
             #connection is the connection, address is (their IP, their port).
             self.connection, self.address = self.s.accept()
             #add connection to members with key of address
-            self.members[self.address] = self.connection
+            #address must be string to prevent ACE through <RQST> tags.
+            self.members[repr(self.address)] = self.connection
             #send adress to client on connection
             self.send(self.connection,repr(self.address))
             #create and start a thread for each user to receive data
@@ -123,7 +135,7 @@ class Server(_CommunicatingObject):
                 #also strips <NAMEND> tag as a byproduct
                 self.retaddr, self.data = self.data.split(b'<NAMEND>')
                 #call respond with decoded data and return address
-                self.respond(self.data.decode(),self.retaddr)
+                self.respond(self.data.decode(),self.retaddr.decode())
 
             case _: #default back to <POST> if tag not found
                 #call receive with decoded data
@@ -145,7 +157,7 @@ class Server(_CommunicatingObject):
         """
         #Implement your own code here!
         #Should be overwritten as only echoes right now.
-        self.send(self.members[eval(address)],data)
+        self.send(self.members[address],data)
 
 
 class Client(_CommunicatingObject):
