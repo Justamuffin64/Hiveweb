@@ -111,12 +111,12 @@ class Server(_CommunicatingObject):
         """
         Sends data to all connections.
         """
-        conlist = []
+        clist = []
         with self.lock:
             for address, connection in self.members.items():
-                conlist.append(connection)
-        if conlist:
-            for i, con in conlist:
+                clist.append(connection)
+        if clist:
+            for con in clist:
                 self.send(con,data)
 
     def _private_receive(self, data):
