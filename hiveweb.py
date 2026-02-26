@@ -95,8 +95,8 @@ class Server(_CommunicatingObject):
                 #address must be string to prevent ACE through <RQST> tags.
                 with self.lock:
                     self.members[repr(self.address)] = self.connection
-                    #send adress to client on connection
-                    self.send(self.connection,repr(self.address))
+                #send adress to client on connection
+                self.send(self.connection,repr(self.address))
                 #create and start a daemon thread for each user to receive data
                 self.t=threading.Thread(target=_listen_thread, args=(self.connection,self,),daemon=True)
                 self.t.start()
