@@ -244,7 +244,7 @@ class Client(_CommunicatingObject):
 
         '_private_receive()' also handles data decoding.
 
-        Special <SERC> tag sent on server close.
+        Special <SERC> tag sent on server close, closes self.
         """
         if data.decode().startswith('<SERC>'):
             self.close()
