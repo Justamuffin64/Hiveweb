@@ -49,6 +49,9 @@ def _listen_thread(connection, instance):
         while data[-5:] != END:
             try:
                 dr = connection.recv(1024)
+                #kill the thread because client abruptly disconnected
+                if not dr:
+                    return None
                 #if data is received, append it to 'data'
                 data += dr
             except OSError:
@@ -63,6 +66,8 @@ class Server(_CommunicatingObject):
     def __init__(self, PORT):
         #perform basic initialization
         super().__init__(PORT)
+        #create lock
+        self.lock = threading.Lock()
         #create an empty member list
         self.members = {}
         #bind to all interfaces
@@ -88,9 +93,10 @@ class Server(_CommunicatingObject):
             if self._open:
                 #add connection to members with key of address
                 #address must be string to prevent ACE through <RQST> tags.
-                self.members[repr(self.address)] = self.connection
-                #send adress to client on connection
-                self.send(self.connection,repr(self.address))
+                with self.lock:
+                    self.members[repr(self.address)] = self.connection
+                    #send adress to client on connection
+                    self.send(self.connection,repr(self.address))
                 #create and start a daemon thread for each user to receive data
                 self.t=threading.Thread(target=_listen_thread, args=(self.connection,self,),daemon=True)
                 self.t.start()
@@ -105,10 +111,9 @@ class Server(_CommunicatingObject):
         """
         Sends data to all connections.
         """
-        self.buffer = self.members.items()
-        for address, connection in self.buffer:
-            self.send(connection,data)
-        del self.buffer
+        with self.lock:
+            for address, connection in self.members.items():
+                self.send(connection,data)
 
     def _private_receive(self, data):
         """
@@ -143,8 +148,9 @@ class Server(_CommunicatingObject):
 
             case b'<CLOS>':
                 #close targeted connection
-                self.members[self.retaddr.decode()].close()
-                del self.members[self.retaddr.decode()]
+                with self.lock:
+                    self.members[self.retaddr.decode()].close()
+                    del self.members[self.retaddr.decode()]
 
             case _: #default back to <POST> if tag not found
                 #call receive with decoded data
