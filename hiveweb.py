@@ -81,18 +81,17 @@ class Server(_CommunicatingObject):
         and call a method that can be overwritten by extended classes.
         """
         self.data = data[:-5]
-        if self.data.startswith(b'<POST>'):
-            self.data = self.data[6:]
-            self.receive(self.data.decode())
+        match self.data[:6]:
+            case b'<POST>':
+                self.data = self.data[6:]
+                self.receive(self.data.decode())
 
-            
-        elif self.data.startswith(b'<REQUEST>'):
-            self.data = self.data[9:]
-            #self.respond([RETURN ADDRESS],self.data.decode())
+            case b'<RQST>':
+                self.data = self.data[6:]
+                #self.respond([RETURN ADDRESS],self.data.decode())
 
-
-        else: #default back to <POST> if tag not found
-            self.receive(self.data.decode())
+            case _: #default back to <POST> if tag not found
+                self.receive(self.data.decode())
 
     def respond(self, data, address):
         self.send(self.members[eval(address)],data)
