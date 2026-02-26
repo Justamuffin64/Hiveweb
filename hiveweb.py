@@ -74,18 +74,26 @@ class Server(_CommunicatingObject):
         """
         Cause the server to begin attempting to connect to new devices.
         """
-        while True:
-            #connect to the client
-            #connection is the connection, address is (their IP, their port).
-            self.connection, self.address = self.s.accept()
-            #add connection to members with key of address
-            #address must be string to prevent ACE through <RQST> tags.
-            self.members[repr(self.address)] = self.connection
-            #send adress to client on connection
-            self.send(self.connection,repr(self.address))
-            #create and start a daemon thread for each user to receive data
-            self.t=threading.Thread(target=_listen_thread, args=(self.connection,self,),daemon=True)
-            self.t.start()
+        self._open = True
+        while self._open:
+            #since 'accept()' pauses code execution I can't really fix this
+            #without try/except.
+            try:
+                #connect to the client
+                #connection is the connection, address is (their IP, their port).
+                self.connection, self.address = self.s.accept()
+            except OSError:
+                pass
+            #make SURE that the server is still open
+            if self._open:
+                #add connection to members with key of address
+                #address must be string to prevent ACE through <RQST> tags.
+                self.members[repr(self.address)] = self.connection
+                #send adress to client on connection
+                self.send(self.connection,repr(self.address))
+                #create and start a daemon thread for each user to receive data
+                self.t=threading.Thread(target=_listen_thread, args=(self.connection,self,),daemon=True)
+                self.t.start()
 
     def send(self,con,data):
         """
@@ -97,8 +105,10 @@ class Server(_CommunicatingObject):
         """
         Sends data to all connections.
         """
-        for address, connection in self.members.items():
+        self.buffer = self.members.items()
+        for address, connection in self.buffer:
             self.send(connection,data)
+        del self.buffer
 
     def _private_receive(self, data):
         """
@@ -172,6 +182,18 @@ class Server(_CommunicatingObject):
         #Should be overwritten as only echoes right now.
         self.send(self.members[address],data)
 
+    def close(self):
+        #close the socket
+        self.s.close()
+        #disable the start loop
+        self._open = False
+        #notify clients
+        self.sendall('<SERC>')
+
+    def __del__(self):
+        #close on deletion
+        self.close()
+
 
 class Client(_CommunicatingObject):
     def __init__(self, PORT, IP):
@@ -190,7 +212,7 @@ class Client(_CommunicatingObject):
         Sends data to the server.
         """
         #send data with post tag
-        self.send('<POST>'+data)
+        self.send('<POST>'+self.address+'<NAMEND>'+data)
 
     def request(self,data):
         """
@@ -215,8 +237,13 @@ class Client(_CommunicatingObject):
         Used to clean server responses.
 
         '_private_receive()' also handles data decoding.
+
+        Special <SERC> tag sent on server close.
         """
-        self.receive(data.decode()[:-5])
+        if data.decode().startswith('<SERC>'):
+            self.close()
+        else:
+            self.receive(data.decode()[:-5])
 
     def close(self):
         #send closing message to server to close connection
@@ -225,8 +252,6 @@ class Client(_CommunicatingObject):
         self.s.shutdown(socket.SHUT_RDWR)
         #close the socket
         self.s.close()
-        #wait for the listener thread to finalize
-        self.t.join()
 
     def __del__(self):
         #close on deletion
