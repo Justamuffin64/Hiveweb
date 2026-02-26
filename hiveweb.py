@@ -47,13 +47,13 @@ def _listen_thread(connection, instance):
         data = b''
         #receive a kb of data until <END> tag is reached
         while data[-5:] != END:
-            dr = connection.recv(1024)
-            #if data is received, append it to 'data'
-            if dr:
+            try:
+                dr = connection.recv(1024)
+                #if data is received, append it to 'data'
                 data += dr
-            #otherwise the socket has disconnected so kill the thread
-            #returning None kills the thread
-            else:
+            except OSError:
+                #otherwise the socket has disconnected so kill the thread
+                #returning None kills the thread
                 return None
         #pass final data back to the right _private_receive
         instance._private_receive(data)
@@ -83,8 +83,8 @@ class Server(_CommunicatingObject):
             self.members[repr(self.address)] = self.connection
             #send adress to client on connection
             self.send(self.connection,repr(self.address))
-            #create and start a thread for each user to receive data
-            self.t=threading.Thread(target=_listen_thread, args=(self.connection,self,))
+            #create and start a daemon thread for each user to receive data
+            self.t=threading.Thread(target=_listen_thread, args=(self.connection,self,),daemon=True)
             self.t.start()
 
     def send(self,con,data):
@@ -111,31 +111,30 @@ class Server(_CommunicatingObject):
         Currently implements these tags:
             <POST> - Sends data to server
             <RQST> - Requests data from the server (currently echoes)
+            <CLOS> - Closes connection to device
 
         Tags must be exactly four characters and enclosed in <braces>.
 
         '_private_receive()' also handles data decoding.
         """
-        #initialize empty return adress (is deleted later)
-        self.retaddr = None
         #strip <END> tag off data
         self.data = data[:-5]
-        #match starting tag (first six characters: <2345>)
-        match self.data[:6]:
+        #get <TAG>, return address, and data
+        self.tag,self.retaddr,self.data = self._extract_data(self.data)
+        
+        match self.tag:
             case b'<POST>':
-                #strip post tag
-                self.data = self.data[6:]
                 #call receive with decoded data
                 self.receive(self.data.decode())
 
             case b'<RQST>':
-                #strip request tag
-                self.data = self.data[6:]
-                #get all data before <NAMEND> tag and after in retaddr, data
-                #also strips <NAMEND> tag as a byproduct
-                self.retaddr, self.data = self.data.split(b'<NAMEND>')
                 #call respond with decoded data and return address
                 self.respond(self.data.decode(),self.retaddr.decode())
+
+            case b'<CLOS>':
+                #close targeted connection
+                self.members[self.retaddr.decode()].close()
+                del self.members[self.retaddr.decode()]
 
             case _: #default back to <POST> if tag not found
                 #call receive with decoded data
@@ -144,6 +143,20 @@ class Server(_CommunicatingObject):
         #delete variables that are no longer in use
         del self.data
         del self.retaddr
+        del self.tag
+
+    def _extract_data(self,data):
+        """
+        Returns a tuple of (<TAG>,name,data)
+        """
+        #strip off tag
+        self.data = data[6:]
+        #get tag
+        self.tag = data[:6]
+        #strip <NAMEND> tag and return name, data
+        self.name, self.data = self.data.split(b'<NAMEND>')
+        #return tuple
+        return self.tag,self.name,self.data
 
     def respond(self, data, address):
         """
@@ -168,8 +181,8 @@ class Client(_CommunicatingObject):
         self.s.connect((IP, PORT))
         #set self.address to address assigned by server
         self.address = self.s.recv(1024)[:-5].decode()
-        #create and start listening thread for return information
-        self.t=threading.Thread(target=_listen_thread, args=(self.s,self))
+        #create and start listening daemon thread for return information
+        self.t=threading.Thread(target=_listen_thread, args=(self.s,self),daemon=True)
         self.t.start()
 
     def post(self,data):
@@ -193,6 +206,9 @@ class Client(_CommunicatingObject):
         #sends data with no tag (not recommended)
         self.s.send(data.encode()+b'<END>')
 
+    def _send_closing(self):
+        self.send('<CLOS>'+self.address+'<NAMEND>')
+
     def _private_receive(self,data):
         """
         Middleman between '_listen_thread()' and 'receive()'
@@ -201,3 +217,17 @@ class Client(_CommunicatingObject):
         '_private_receive()' also handles data decoding.
         """
         self.receive(data.decode()[:-5])
+
+    def close(self):
+        #send closing message to server to close connection
+        self._send_closing()
+        #shut down socket
+        self.s.shutdown(socket.SHUT_RDWR)
+        #close the socket
+        self.s.close()
+        #wait for the listener thread to finalize
+        self.t.join()
+
+    def __del__(self):
+        #close on deletion
+        self.close()
