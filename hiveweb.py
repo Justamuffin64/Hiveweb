@@ -13,7 +13,7 @@ class _CommunicatingObject(object):
         """
         #declare PORT constant
         self.PORT = PORT
-        
+
         #create socket
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -34,7 +34,7 @@ class _CommunicatingObject(object):
         """
         #custom functionality must be created through overwrites
         self.receive(data)
-        
+
 
 #USED IN LISTENING THREAD
 def _listen_thread(connection, instance):
@@ -58,7 +58,7 @@ class Server(_CommunicatingObject):
         self.s.bind(('',PORT))
         #listen to all interfaces
         self.s.listen()
-    
+
     def start(self):
         """
         Cause the server to begin attempting to connect to new devices.
