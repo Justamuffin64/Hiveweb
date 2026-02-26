@@ -72,6 +72,10 @@ class Server(_CommunicatingObject):
         """
         con.send(data.encode()+b'<END>')
 
+    def sendall(self,data):
+        for address, connection in self.members.items():
+            self.send(connection,data)
+
     def _private_receive(self, data):
         """
         Middleman between '_listen_thread()' and 'receive()'
