@@ -86,7 +86,7 @@ class Server(_CommunicatingObject):
             try:
                 #connect to the client
                 #connection is the connection, address is (their IP, their port).
-                self.connection, self.address = self.s.accept()
+                connection, address = self.s.accept()
             except OSError:
                 pass
             #make SURE that the server is still open
@@ -94,11 +94,11 @@ class Server(_CommunicatingObject):
                 #add connection to members with key of address
                 #address must be string to prevent ACE through <RQST> tags.
                 with self.lock:
-                    self.members[repr(self.address)] = self.connection
+                    self.members[repr(address)] = connection
                 #send adress to client on connection
-                self.send(self.connection,repr(self.address))
+                self.send(connection,repr(address))
                 #create and start a daemon thread for each user to receive data
-                self.t=threading.Thread(target=_listen_thread, args=(self.connection,self,),daemon=True)
+                self.t=threading.Thread(target=_listen_thread, args=(connection,self,),daemon=True)
                 self.t.start()
 
     def send(self,con,data):
@@ -111,9 +111,13 @@ class Server(_CommunicatingObject):
         """
         Sends data to all connections.
         """
+        conlist = []
         with self.lock:
             for address, connection in self.members.items():
-                self.send(connection,data)
+                conlist.append(connection)
+        if conlist:
+            for i, con in conlist:
+                self.send(con,data)
 
     def _private_receive(self, data):
         """
@@ -184,12 +188,12 @@ class Server(_CommunicatingObject):
         self.send(self.members[address],data)
 
     def close(self):
-        #close the socket
-        self.s.close()
         #disable the start loop
         self._open = False
         #notify clients
         self.sendall('<SERC>')
+        #close the socket
+        self.s.close()
 
     def __del__(self):
         #close on deletion
