@@ -27,8 +27,10 @@ class _CommunicatingObject(object):
 
     def _private_receive(self, data):
         """
-        Middleman between '_listen_thread()' and 'receive()'
+        Middleman between '_listen_thread()' and 'receive()'.
         Used to manipulate data without interacting with 'receive()'.
+
+        Currentls a passthrough to 'receive()'.
         """
         #custom functionality must be created through overwrites
         self.receive(data)
@@ -88,7 +90,7 @@ class Server(_CommunicatingObject):
 
     def _private_receive(self, data):
         """
-        Middleman between '_listen_thread()' and 'receive()'
+        Middleman between '_listen_thread()' and 'receive()'.
         Used to parse server commands.
 
         Server commands should be implemented with a leading tag here,
@@ -98,7 +100,7 @@ class Server(_CommunicatingObject):
             <POST> - Sends data to server
             <RQST> - Requests data from the server (currently echoes)
 
-        Tags must be exactly four characters and enclosed in <braces>
+        Tags must be exactly four characters and enclosed in <braces>.
 
         '_private_receive()' also handles data decoding.
         """
