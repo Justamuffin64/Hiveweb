@@ -140,7 +140,7 @@ class Server(_CommunicatingObject):
         data = data[:-5]
         #get <TAG>, return address, and data
         tag,retaddr,data = self._extract_data(data)
-        
+
         match tag:
             case b'<POST>':
                 #call receive with decoded data
@@ -251,12 +251,16 @@ class Client(_CommunicatingObject):
             self.receive(data.decode()[:-5])
 
     def close(self):
-        #send closing message to server to close connection
-        self._send_closing()
-        #shut down socket
-        self.s.shutdown(socket.SHUT_RDWR)
-        #close the socket
-        self.s.close()
+        try:
+            #send closing message to server to close connection
+            self._send_closing()
+            #shut down socket
+            self.s.shutdown(socket.SHUT_RDWR)
+            #close the socket
+            self.s.close()
+        except OSError:
+            pass
+
 
     def __del__(self):
         #close on deletion
