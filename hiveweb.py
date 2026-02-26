@@ -165,13 +165,13 @@ class Server(_CommunicatingObject):
         Returns a tuple of (<TAG>,name,data)
         """
         #strip off tag
-        self.data = data[6:]
+        data = data[6:]
         #get tag
-        self.tag = data[:6]
+        tag = data[:6]
         #strip <NAMEND> tag and return name, data
-        self.name, self.data = self.data.split(b'<NAMEND>')
+        name, data = data.split(b'<NAMEND>')
         #return tuple
-        return self.tag,self.name,self.data
+        return tag,name,data
 
     def respond(self, data, address):
         """
