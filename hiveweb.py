@@ -80,6 +80,7 @@ class Server(_CommunicatingObject):
         Server commands should be implemented with a leading tag here,
         and call a method that can be overwritten by extended classes.
         """
+        self.retaddr = None
         self.data = data[:-5]
         match self.data[:6]:
             case b'<POST>':
@@ -88,10 +89,15 @@ class Server(_CommunicatingObject):
 
             case b'<RQST>':
                 self.data = self.data[6:]
-                #self.respond([RETURN ADDRESS],self.data.decode())
+                #get all data before <NAMEND> tag and after
+                self.retaddr, self.data = self.data.split(b'<NAMEND>')
+                self.respond(self.data.decode(),self.retaddr)
 
             case _: #default back to <POST> if tag not found
                 self.receive(self.data.decode())
+
+        del self.data
+        del self.retaddr
 
     def respond(self, data, address):
         self.send(self.members[eval(address)],data)
@@ -112,7 +118,7 @@ class Client(_CommunicatingObject):
         self.send('<POST>'+data)
 
     def request(self,data):
-        self.send('<REQUEST>'+data)
+        self.send('<RQST>'+self.address+'<NAMEND>'+data)
 
     def send(self,data):
         """
