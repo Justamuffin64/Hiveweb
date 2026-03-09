@@ -14,6 +14,9 @@ class _Communicator:
         self.IP = IP
         self.loop = asyncio.get_event_loop()
 
+        self._next_id = 0
+        self._pending = {}
+
     def __init_subclass__(cls):
         super().__init_subclass__()
 
@@ -26,15 +29,57 @@ class _Communicator:
                     raise KeyError("Duplicate tag '%s' detected"%attr._tag)
                 cls._handlers[attr._tag]=attr
 
+    async def call(self,tag,**data):
+        #create message
+        message = {
+            'tag':tag,
+            'id':self._next_id,
+            **data
+            }
+        #create a future and add it to _pending
+        future = self.loop.create_future()
+        self._pending[self._next_id] = future
+        #increment id
+        self._next_id += 1
+        #send message
+        await self._send(message)
+        #return future
+        return await future
+        
+
     async def _private_receive(self, data):
         """
         calls appropriate handler for received tag
         """
+        #get tag from message
+        tag = data.get('tag')
+
+        #check if the message is a response
+        if tag == 'response':
+            #get the message id
+            message_id = data['id']
+            #check if id is in pending futures
+            if message_id in self._pending:
+                #if it is, set it's result to data["return"]
+                self._pending[message_id].set_result(data.get('return'))
+                #delete future
+                del self._pending[message_id]
+            #end
+            return
+        
         try:
-            h = self._handlers[data['tag']]
-            await h(self,data)
+            h = self._handlers[tag]
+            result = await h(self,data)
         except KeyError:
             raise KeyError('Invalid tag detected')
+
+        #respond if the message had an id
+        if 'id' in data:
+            await self._send({
+                'tag':'response',
+                'id':data['id'],
+                'return':result
+                })
         
 
 class Server(_Communicator):
