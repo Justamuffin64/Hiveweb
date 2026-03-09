@@ -96,6 +96,24 @@ class Server(_Communicator):
     @handles('ps')
     async def ps(self,data):
         print(data)
+    @handles('client_close')
+    async def client_close(self,data):
+        addr = None
+        #assign address
+        if 'addr' in data:
+            addr = tuple(data['addr'])
+        else:
+            raise KeyError('Address not found in data.')
+        #only use address if it is received
+        if addr != None:
+            #get reader and writer
+            reader,writer = self.members[addr]
+            #close writer
+            writer.close()
+            await writer.wait_closed()
+            #delete member entry
+            del self.members[addr]
+        
 
 class Client(_Communicator):
     def __init__(self,PORT,IP):
@@ -117,6 +135,8 @@ class Client(_Communicator):
         self.address = tuple(self.address)
 
     async def close_self(self):
+        #send closing message to server
+        await self._send({'tag':'client_close','addr':self.address})
         #close self
         self.writer.close()
         await self.writer.wait_closed()
@@ -180,9 +200,6 @@ async def listen(reader, writer, instance):
     writer.close()
     await writer.wait_closed()
             
-async def receive(data):
-    print(data)
-
 async def main():
     IP = 'localhost'
     PORT = 8331
@@ -195,7 +212,7 @@ async def main():
     client = Client(PORT,IP)
     await client.start()
 
-    await server.close()
+    await client.close_self()
 
     await asyncio.sleep(1)
 
