@@ -86,6 +86,8 @@ class Server(_Communicator):
     async def close_self(self):
         #loop through members
         for addr, tup in self.members.items():
+            #send closing message to clients
+            await self._sendto({'tag':'server_close'},addr)
             #close all of them
             tup[1].close()
             await tup[1].wait_closed()
@@ -151,6 +153,10 @@ class Client(_Communicator):
     @handles('ps')
     async def ps(self,data):
         print(data)
+    @handles('server_close')
+    async def server_close(self,data):
+        await self.close_self()
+
 
     async def _send(self,data):
         message = json.dumps(data).encode()
@@ -212,7 +218,7 @@ async def main():
     client = Client(PORT,IP)
     await client.start()
 
-    await client.close_self()
+    await server.close_self()
 
     await asyncio.sleep(1)
 
