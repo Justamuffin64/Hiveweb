@@ -12,7 +12,6 @@ class _Communicator:
     def __init__(self,PORT,IP):
         self.PORT = PORT
         self.IP = IP
-        self.loop = asyncio.get_event_loop()
 
         self._next_id = 0
         self._pending = {}
