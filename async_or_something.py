@@ -75,13 +75,13 @@ class _Communicator:
         except KeyError:
             raise KeyError('Invalid tag detected')
 
-        #get address from data
-        addr = tuple(data.get('addr'))
+        addr = data.get('addr')
+        addr = tuple(addr) if addr else None
         #respond if the message had an id
         if 'id' in data:
             await self._send({
                 'tag':'response',
-                3'id':data['id'],
+                'id':data['id'],
                 'return':result
                 },addr)
         
@@ -250,6 +250,10 @@ async def listen(reader, writer, instance):
             except json.JSONDecodeError:
                 buffer = buffer[le+4:]
                 continue
+            #get the address
+            addr = writer.get_extra_info('peername')
+            #insert address into message if not present (unused by client)
+            message.setdefault('addr',addr)
             #send final decoded message to instance's private receive async
             await instance._private_receive(message)
             #remove message from buffer
