@@ -37,7 +37,7 @@ class _Communicator:
             **data
             }
         #create a future and add it to _pending
-        future = self.loop.create_future()
+        future = asyncio.get_running_loop().create_future()
         self._pending[self._next_id] = future
         #increment id
         self._next_id += 1
@@ -179,7 +179,7 @@ class Client(_Communicator):
         asyncio.create_task(listen(self.reader,self.writer,self))
 
         #create a future
-        self.future = self.loop.create_future()
+        self.future = asyncio.get_running_loop().create_future()
         #wait for the future to be assigned the address
         self.address = await self.future
         #recast as tuple
