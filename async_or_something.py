@@ -68,18 +68,32 @@ class _Communicator:
             return
         
         try:
+            #get handler as 'h'
             h = self._handlers[tag]
+            #get result from handler
             result = await h(self,data)
         except KeyError:
             raise KeyError('Invalid tag detected')
 
-        #respond if the message had an id
-        if 'id' in data:
-            await self._send({
-                'tag':'response',
-                'id':data['id'],
-                'return':result
-                })
+        #check if address in data
+        if 'addr' in data:
+            #get address as addr
+            addr = tuple(data['addr'])
+            #respond if the message had an id
+            if 'id' in data:
+                await self._sendto({
+                    'tag':'response',
+                    3'id':data['id'],
+                    'return':result
+                    },addr)
+        else:
+            #respond if the message had an id
+            if 'id' in data:
+                await self._send({
+                    'tag':'response',
+                    'id':data['id'],
+                    'return':result
+                    })
         
 
 class Server(_Communicator):
