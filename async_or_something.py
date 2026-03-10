@@ -79,7 +79,10 @@ class _Communicator:
         This just makes it so slow RPC doesn't hang
         It does this by making all the RPC response stuff a separate funcion
         """
-        result = await handler(self,data)
+        try:
+            result = await handler(self,data)
+        except Exception as e:
+            result = str(e)
 
         addr = data.get('addr')
         addr = tuple(addr) if addr else None
