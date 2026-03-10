@@ -70,9 +70,16 @@ class _Communicator:
             #get handler as 'h'
             h = self._handlers[tag]
             #get result from handler
-            result = await h(self,data)
+            asyncio.create_task(_handle_handler(h,data))
         except KeyError:
             raise KeyError('Invalid tag detected')
+
+    async def _handle_handler(self,handler,data):
+        """
+        This just makes it so slow RPC doesn't hang
+        It does this by making all the RPC response stuff a separate funcion
+        """
+        result = await handler(self,data)
 
         addr = data.get('addr')
         addr = tuple(addr) if addr else None
