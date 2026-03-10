@@ -70,7 +70,7 @@ class _Communicator:
             #get handler as 'h'
             h = self._handlers[tag]
             #get result from handler
-            asyncio.create_task(_handle_handler(h,data))
+            asyncio.create_task(self._handle_handler(h,data))
         except KeyError:
             raise KeyError('Invalid tag detected')
 
@@ -156,6 +156,9 @@ class Server(_Communicator):
     @handles('ps')
     async def ps(self,data):
         print(data)
+    @handles('rpc')
+    async def rpc(self,data):
+        return data
     @handles('client_close')
     async def client_close(self,data):
         addr = None
@@ -283,7 +286,7 @@ async def main():
     client = Client(PORT,IP)
     await client.start()
 
-    await server.close_self()
+    print('client',await client.call('rpc',hello='world'))
 
     await asyncio.sleep(1)
 
