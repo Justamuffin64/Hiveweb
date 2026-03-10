@@ -75,25 +75,15 @@ class _Communicator:
         except KeyError:
             raise KeyError('Invalid tag detected')
 
-        #check if address in data
-        if 'addr' in data:
-            #get address as addr
-            addr = tuple(data['addr'])
-            #respond if the message had an id
-            if 'id' in data:
-                await self._sendto({
-                    'tag':'response',
-                    3'id':data['id'],
-                    'return':result
-                    },addr)
-        else:
-            #respond if the message had an id
-            if 'id' in data:
-                await self._send({
-                    'tag':'response',
-                    'id':data['id'],
-                    'return':result
-                    })
+        #get address from data
+        addr = tuple(data.get('addr'))
+        #respond if the message had an id
+        if 'id' in data:
+            await self._send({
+                'tag':'response',
+                3'id':data['id'],
+                'return':result
+                },addr)
         
 
 class Server(_Communicator):
@@ -121,11 +111,11 @@ class Server(_Communicator):
         #add address to self.members
         self.members[addr] = (reader, writer)
         #tell connector their address
-        await self._sendto({'tag':'rec_addr','addr':addr},addr)
+        await self._send({'tag':'rec_addr','addr':addr},addr)
         #listen asynchronously in background
         asyncio.create_task(listen(reader,writer,self))
 
-    async def _sendto(self,data,addr):
+    async def _send(self,data,addr):
         #get writer for address as w
         try:
             w = self.members[addr][1]
@@ -146,7 +136,7 @@ class Server(_Communicator):
         #loop through members
         for addr, tup in self.members.items():
             #send closing message to clients
-            await self._sendto({'tag':'server_close'},addr)
+            await self._send({'tag':'server_close'},addr)
             #close all of them
             tup[1].close()
             await tup[1].wait_closed()
@@ -217,7 +207,10 @@ class Client(_Communicator):
         await self.close_self()
 
 
-    async def _send(self,data):
+    async def _send(self,data,addr=None):
+        """
+        addr is only added for compatability with server commands
+        """
         message = json.dumps(data).encode()
         le = struct.pack('>I',len(message))
         message = le+message
