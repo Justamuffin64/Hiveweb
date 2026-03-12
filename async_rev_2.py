@@ -61,7 +61,7 @@ class _Communicator(ABC):
 
 class _RPCHandler(_Communicator):
     """
-    Abstract class for handling RPC calls and message sending.
+    Abstract class for handling RPC calls.
     """
     def __init__(self):
         self.next_id = 0 #message ID for rpc requests
