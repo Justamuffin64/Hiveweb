@@ -27,7 +27,7 @@ class _Communicator(ABC):
                     raise KeyError('Duplicate tag \'%s\' detected.'%tag) #throw an error explaining the problem
                 cls._handlers[tag] = attr #add handler func to _handlers, but func is not bound fyi
 
-    async def _handle_handler(self,handler,data:dict): #coroutine to run in background--handles RPC calls and handler calling
+    async def _handle_handler(self,handler,data:dict): #coroutine to run in background--handles RPC calls and handler calling (maybe shouldn't be in _Communicator but who cares)
         try: #call the handler and store potential error
             result = await handler(self,data) #run handler and store result
         except Exception as e: #catch errors
@@ -89,9 +89,9 @@ class _RPCHandler(_Communicator):
                     del self._pending[message_id] #delete finished future
                     return #end logic
             case _: #non-response case
-                if tag in self._handlers:
-                    handler = self._handlers[tag]
-                    asyncio.create_task(self._handle_handler(handler,data))
+                if tag in self._handlers: #check to be sure message tag is in handlers
+                    handler = self._handlers[tag] #identify correct handler
+                    asyncio.create_task(self._handle_handler(handler,data)) #deal with handler and potential RPC response in background.
                 
         
         
