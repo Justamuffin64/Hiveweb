@@ -6,8 +6,8 @@ from abc import ABC, abstractmethod
 def handles(tag:str): #factory
     def decorator(func): #decorator
         func._tag = tag #set private tag on fucntion to 'tag'
-        return func #return function (no wrapper because only decoration time logic is used)
-    return decorator #return decorator (Ok you just do this I forgot why lol)
+        return func #return function (no wrapper because only decoration time logic is needed)
+    return decorator #return decorator (this is so the factory returns something that can decorate a function)
 
 class _Communicator(ABC):
     """
