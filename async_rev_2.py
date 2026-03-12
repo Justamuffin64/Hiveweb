@@ -11,7 +11,7 @@ def handles(tag:str): #factory
 
 class _Communicator(ABC):
     """
-    Abstract class for handlers and IP/PORT assignment.
+    Abstract class for handlers, IP/PORT assignment, and message sending.
     """
     def __init__(self,IP:str,PORT:int):
         self.IP = IP
