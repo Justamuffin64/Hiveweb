@@ -23,7 +23,7 @@ class _Communicator(ABC):
 
         for name,attr in cls.__dict__.items(): #loop through everything in subclass's __dict__
             if callable(attr) and hasattr(attr,'_tag'): #check if attribute is callable and has _tag (basically check if it was decorated with @handles)
-                if tag:=attr._tag in cls._handlers: #check if the tag is a duplicate and save it using walrus expression for later
+                if (tag:=attr._tag) in cls._handlers: #check if the tag is a duplicate and save it using walrus expression for later
                     raise KeyError('Duplicate tag \'%s\' detected.'%tag) #throw an error explaining the problem
                 cls._handlers[tag] = attr #add handler func to _handlers, but func is not bound fyi
 
@@ -38,7 +38,7 @@ class _Communicator(ABC):
                 'tag':'response',   #create message
                 'ID':data['ID'],    #
                 'return':result,}   #
-            self._send(message,data['writer']) #send message back to writer
+            await self._send(message,data['writer']) #send message back to writer
 
     async def _send(self,data:dict,writer:asyncio.StreamWriter): #coroutine to send messages to specific writer
         try: #attempt to encode message json or throw error on failiure
@@ -68,7 +68,8 @@ class _RPCHandler(_Communicator):
     """
     Abstract class for handling RPC calls.
     """
-    def __init__(self):
+    def __init__(self,IP:str=None,PORT:int=None): #values default to none because they are unused but must exist for _Communicator initialization
+        super().__init__(IP,PORT) #initialize _Communicator parent class
         self.next_id = 0 #message ID for rpc requests
         self._pending = {} #pending futures from rpc requests
 
@@ -109,13 +110,16 @@ class BaseServer(_RPCHandler):
     async def _start(self):
         self.server = await asyncio.start_server(self._accept,self.IP,self.PORT) #create a server
         async with self.server as server: #context manager, might handle server closing idk
-            asyncio.create_task(server.serve_forever()) #server forever in background
+            await server.serve_forever() #server forever in background
 
     async def _accept(self,reader,writer):
         connecting_ip = writer.get_extra_info('peername') #get peername (IPv4,port,??,??)
         self._members[connecting_ip] = (reader,writer) #save reader,writer pair to peername
         await self._call('rec_addr',writer,address=connecting_ip) #calls rec_addr's handler on connecting object with address as address, will wait until handler returns
         asyncio.create_task(_listen(self,reader,writer)) #listen asynchronously in background
+
+    async def _close_self(self):
+        pass
 
 class BaseClient(_RPCHandler):
     @handles('rec_addr')
@@ -128,7 +132,10 @@ class BaseClient(_RPCHandler):
         self.reader, self.writer = await asyncio.open_connection(self.IP,self.PORT) #open connection to server
         asyncio.create_task(_listen(self,self.reader,self.writer)) #listen asynchronously
         self._future_addr = asyncio.get_running_loop().create_future() #create a future for address
-        self.address = await self._future_addr #save address
+        self.address = tuple(await self._future_addr) #save address
+
+    async def _close_self(self):
+        pass
         
 
 async def _listen(instance,reader:asyncio.StreamReader,writer:asyncio.StreamWriter):
@@ -143,9 +150,9 @@ async def _listen(instance,reader:asyncio.StreamReader,writer:asyncio.StreamWrit
             break
         buffer += chunk #add chunk to buffer
         while True: #loop
-            if buffer_length:=len(buffer) < 4: #break if chunk < 4 and save length
+            if (buffer_length:=len(buffer)) < 4: #break if chunk < 4 and save length
                 break #go back to data receiving loop
-            length = struct.unpack('>I',buffer_length) #decode length header
+            length = struct.unpack('>I',buffer[:4])[0] #decode length header
             if buffer_length < length+4: #break if chunk doesn't contain all data
                 break #go back to data receiving loop
             message = chunk[4:buffer_length+4].decode() #save & decode message
@@ -165,3 +172,26 @@ async def _listen(instance,reader:asyncio.StreamReader,writer:asyncio.StreamWrit
     #closing logic
     writer.close()
     await writer.wait_closed()
+
+
+
+#########################################################################################################################################################################################
+
+
+async def main():
+    IP = 'localhost'
+    PORT = 8331
+
+    server = BaseServer(IP,PORT)
+    asyncio.create_task(server.start())
+
+    await asyncio.sleep(0.1)
+    
+    client = BaseClient(IP,PORT)
+    await client.start()
+
+    print(client.address)
+
+    await asyncio.sleep(1)
+
+asyncio.run(main())
