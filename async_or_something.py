@@ -286,7 +286,8 @@ async def main():
     client = Client(PORT,IP)
     await client.start()
 
-    print('client',await client.call('rpc',hello='world'))
+    #print('client',await client.call('rpc',hello='world'))
+    print(client.address)
 
     await asyncio.sleep(1)
 
