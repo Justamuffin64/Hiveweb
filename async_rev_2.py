@@ -101,6 +101,8 @@ class _RPCHandler(_Communicator):
                 if tag in self._handlers: #check to be sure message tag is in handlers
                     handler = self._handlers[tag] #identify correct handler
                     asyncio.create_task(self._handle_handler(handler,data)) #deal with handler and potential RPC response in background.
+                else: #code to run if message tag isn't in handlers
+                    raise KeyError(f"Handler '{tag}' not found in {self.__class__.__name__}.") #raise an error if handler not found
 
 class BaseServer(_RPCHandler):
     def __init__(self,IP:str,PORT:int):
