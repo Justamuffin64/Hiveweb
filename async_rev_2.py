@@ -107,6 +107,9 @@ class BaseServer(_RPCHandler):
         super().__init__(IP,PORT) #initialize parent classes
         self._members = {} #create empty private members dictionary, format: {addr as tuple: (reader,writer)}
 
+    async def start(self):
+        asyncio.create_task(self._start())
+
     async def _start(self):
         self.server = await asyncio.start_server(self._accept,self.IP,self.PORT) #create a server
         async with self.server as server: #context manager, might handle server closing idk
@@ -182,15 +185,11 @@ async def main():
     PORT = 8331
 
     server = BaseServer(IP,PORT)
-    asyncio.create_task(server.start())
-
-    await asyncio.sleep(0.1)
+    await server.start()
     
     client = BaseClient(IP,PORT)
     await client.start()
 
     print(client.address)
-
-    await asyncio.sleep(1)
 
 asyncio.run(main())
