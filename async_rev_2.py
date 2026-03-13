@@ -58,13 +58,12 @@ class _Communicator(ABC):
         ...
 
     async def close_self(self): #abstract method to be overwritten by children with their closing logic
-        self._close_self()
+        await self._close_self()
 
     @abstractmethod
     async def _close_self(self): #abstract method to be overwritten by children with their start logic
         ...
         
-
 class _RPCHandler(_Communicator):
     """
     Abstract class for handling RPC calls.
@@ -101,9 +100,6 @@ class _RPCHandler(_Communicator):
                 if tag in self._handlers: #check to be sure message tag is in handlers
                     handler = self._handlers[tag] #identify correct handler
                     asyncio.create_task(self._handle_handler(handler,data)) #deal with handler and potential RPC response in background.
-                
-        
-        
 
 async def _listen(instance,reader:asyncio.StreamReader,writer:asyncio.StreamWriter):
     """
