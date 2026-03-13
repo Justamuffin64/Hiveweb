@@ -101,14 +101,13 @@ class _RPCHandler(_Communicator):
                     handler = self._handlers[tag] #identify correct handler
                     asyncio.create_task(self._handle_handler(handler,data)) #deal with handler and potential RPC response in background.
 
-class Server(_RPCHandler):
+class BaseServer(_RPCHandler):
     def __init__(self,IP:str,PORT:int):
         super().__init__(IP,PORT) #initialize parent classes
         self._members = {} #create empty private members dictionary, format: {ip as str: (reader,writer)}
 
     async def _start(self):
         self.server = await asyncio.start_server(self._accept,self.IP,self.PORT) #create a server
-
         async with self.server as server: #context manager, might handle server closing idk
             asyncio.create_task(server.serve_forever()) #server forever in background
 
@@ -117,6 +116,20 @@ class Server(_RPCHandler):
         self._members[connecting_ip] = (reader,writer) #save reader,writer pair to peername
         await self._call('rec_addr',writer,address=connecting_ip) #calls rec_addr's handler on connecting object with address as address, will wait until handler returns
         asyncio.create_task(_listen(self,reader,writer)) #listen asynchronously in background
+
+class BaseClient(_RPCHandler):
+    @handles('rec_addr')
+    async def _receive_address(self,data): #handles receiving address on connection
+        if not self._future_addr.done(): #ensure future is unresolved
+            self._future_addr.set_result(data.get('address')) #save address
+        return None #return None to resolve future and stop hanging Server._accept
+
+    async def _start(self):
+        self.reader, self.writer = await asyncio.open_connection(self.IP,self.PORT) #open connection to server
+        asyncio.create_task(_listen(self,self.reader,self.writer)) #listen asynchronously
+        self._future_addr = asyncio.get_running_loop().create_future() #create a future for address
+        self.address = await self._future_addr #save address
+        
 
 async def _listen(instance,reader:asyncio.StreamReader,writer:asyncio.StreamWriter):
     """
