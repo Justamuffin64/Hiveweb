@@ -42,7 +42,7 @@ class _Communicator(ABC):
 
     async def _send(self,data:dict,writer:asyncio.StreamWriter): #coroutine to send messages to specific writer
         try: #attempt to encode message json or throw error on failiure
-            message = json.dumps(data).encode() #save encoded json as message
+            message = json.dumps(data).encode('utf-8') #save encoded json as message
         except Exception as e:
             raise TypeError('Malformed message: %r\nRaised exception: %s'%(data,e)) #raise formatted error
         length = struct.pack('>I',len(message)) #get four byte length header as length
@@ -155,7 +155,7 @@ async def _listen(instance,reader:asyncio.StreamReader,writer:asyncio.StreamWrit
             length = struct.unpack('>I',buffer[:4])[0] #decode length header
             if buffer_length < length+4: #break if chunk doesn't contain all data
                 break #go back to data receiving loop
-            message = buffer[4:length+4].decode() #save & decode message
+            message = buffer[4:length+4].decode('utf-8') #save & decode message
             buffer = buffer[length+4:] #remove message from buffer
             try: #attempt to decode message json, discard message if error
                 message = json.loads(message)
