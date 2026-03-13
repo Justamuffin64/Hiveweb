@@ -74,7 +74,7 @@ class _RPCHandler(_Communicator):
         self._pending = {} #pending futures from rpc requests
 
     async def call(self,tag:str,w=None,**data): #passthrough to private call
-        await self._call(tag,w,**data)
+        return await self._call(tag,w,**data)
 
     async def _call(self,tag:str,w=None,**data):
         current_id = self.next_id #get current ID
@@ -91,10 +91,10 @@ class _RPCHandler(_Communicator):
     async def _private_receive(self,data:dict):
         tag = data.get('tag') #get tag from data
 
-        match message:=data: #match data as message
+        match data: #match data as message
             case dict({'ID':int() as message_id,'tag':'response'}): #response case
                 if message_id in self._pending: #check if ID has a pending future
-                    self._pending[message_id].set_result(message.get('return')) #if it does, set the result to the 'return' result
+                    self._pending[message_id].set_result(data.get('return')) #if it does, set the result to the 'return' result
                     del self._pending[message_id] #delete finished future
                     return #end logic
             case _: #non-response case
@@ -105,7 +105,7 @@ class _RPCHandler(_Communicator):
 class BaseServer(_RPCHandler):
     def __init__(self,IP:str,PORT:int):
         super().__init__(IP,PORT) #initialize parent classes
-        self._members = {} #create empty private members dictionary, format: {ip as str: (reader,writer)}
+        self._members = {} #create empty private members dictionary, format: {addr as tuple: (reader,writer)}
 
     async def _start(self):
         self.server = await asyncio.start_server(self._accept,self.IP,self.PORT) #create a server
@@ -115,8 +115,8 @@ class BaseServer(_RPCHandler):
     async def _accept(self,reader,writer):
         connecting_ip = writer.get_extra_info('peername') #get peername (IPv4,port,??,??)
         self._members[connecting_ip] = (reader,writer) #save reader,writer pair to peername
-        await self._call('rec_addr',writer,address=connecting_ip) #calls rec_addr's handler on connecting object with address as address, will wait until handler returns
         asyncio.create_task(_listen(self,reader,writer)) #listen asynchronously in background
+        await self._call('rec_addr',writer,address=connecting_ip) #calls rec_addr's handler on connecting object with address as address, will wait until handler returns
 
     async def _close_self(self):
         pass
@@ -155,12 +155,11 @@ async def _listen(instance,reader:asyncio.StreamReader,writer:asyncio.StreamWrit
             length = struct.unpack('>I',buffer[:4])[0] #decode length header
             if buffer_length < length+4: #break if chunk doesn't contain all data
                 break #go back to data receiving loop
-            message = chunk[4:buffer_length+4].decode() #save & decode message
-            buffer = buffer[buffer_length+4:] #remove message from buffer
+            message = buffer[4:length+4].decode() #save & decode message
+            buffer = buffer[length+4:] #remove message from buffer
             try: #attempt to decode message json, discard message if error
                 message = json.loads(message)
             except json.JSONDecodeError:
-                del message
                 continue #restart loop for next message
             match message: #using match case
                 case dict({'tag':str() as tag}): #check if message became a dict with a 'tag' entry
