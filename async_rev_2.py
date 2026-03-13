@@ -50,12 +50,18 @@ class _Communicator(ABC):
         writer.write(message) #write message to writer
         await writer.drain() #drain writer buffer
 
-    @abstractmethod
-    async def start(self): #abstract method to be overwritten by children with their start logic
-        ...
+    async def start(self): #passthrough to private start
+        await self._start()
 
     @abstractmethod
+    async def _start(self): #abstract method to be overwritten by children with their start logic
+        ...
+
     async def close_self(self): #abstract method to be overwritten by children with their closing logic
+        self._close_self()
+
+    @abstractmethod
+    async def _close_self(self): #abstract method to be overwritten by children with their start logic
         ...
         
 
@@ -67,7 +73,10 @@ class _RPCHandler(_Communicator):
         self.next_id = 0 #message ID for rpc requests
         self._pending = {} #pending futures from rpc requests
 
-    async def call(self,tag:str,w=None,**data):
+    async def call(self,tag:str,w=None,**data): #passthrough to private call
+        await self._call(tag,w,**data)
+
+    async def _call(self,tag:str,w=None,**data):
         current_id = self.next_id #get current ID
         self.next_id += 1 #increment ID
         future = asyncio.get_running_loop().create_future() #create a future
@@ -96,7 +105,7 @@ class _RPCHandler(_Communicator):
         
         
 
-async def listen(instance,reader:asyncio.StreamReader,writer:asyncio.StreamWriter):
+async def _listen(instance,reader:asyncio.StreamReader,writer:asyncio.StreamWriter):
     """
     Coroutine meant to run in the background to listen for incoming messages.
     Messages are passed to the '_private_receive' of 'instance'.
